@@ -1,0 +1,19 @@
+name: Notify Game Website
+
+on:
+  push:
+    branches:
+      - main
+      - master
+
+jobs:
+  notify-website:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger website rebuild
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.WEBSITE_REPO_TOKEN }}
+          repository: amjith/vian-games
+          event-type: game-updated
+          client-payload: '{"game":"${{ github.event.repository.name }}","sha":"${{ github.sha }}"}'

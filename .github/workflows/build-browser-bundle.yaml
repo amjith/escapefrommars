@@ -14,7 +14,7 @@ jobs:
       - name: Prepare bundle
         run: |
           mkdir -p bundle
-          cp -R index.html src assets CNAME bundle/
+          cp -R index.html src assets bundle/
       - name: Upload bundle
         uses: actions/upload-artifact@v4
         with:

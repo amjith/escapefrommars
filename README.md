@@ -6,7 +6,7 @@ A browser-based sci-fi action game built with Phaser 3 and vanilla JavaScript.
 Build a deployable bundle:
 ```bash
 mkdir -p bundle
-cp -R index.html src assets CNAME bundle/
+cp -R index.html src assets bundle/
 ```
 
 Serve locally:

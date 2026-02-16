@@ -1,0 +1,22 @@
+name: Build Browser Bundle
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Prepare bundle
+        run: |
+          mkdir -p bundle
+          cp -R index.html src assets CNAME bundle/
+      - name: Upload bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-bundle
+          path: bundle

@@ -14,12 +14,88 @@
         background: #1a0f0b;
         color: #f7e9d3;
         font-family: "Trebuchet MS", "Lucida Sans Unicode", "Lucida Grande", "Lucida Sans", Arial, sans-serif;
+        min-height: 100vh;
+      }
+
+      #app-shell {
+        display: flex;
+        gap: 14px;
+        align-items: stretch;
+        height: 100vh;
+        box-sizing: border-box;
+        padding: 14px;
       }
 
       #game {
-        display: grid;
-        place-items: center;
-        min-height: 100vh;
+        flex: 1 1 auto;
+        min-width: 0;
+        height: 100%;
+        border: 2px solid #56392b;
+        border-radius: 10px;
+        background: #140b07;
+        overflow: hidden;
+      }
+
+      #hud-sidebar {
+        flex: 0 0 320px;
+        background: rgba(12, 7, 5, 0.86);
+        border: 2px solid #6c4b37;
+        border-radius: 10px;
+        padding: 14px;
+        box-sizing: border-box;
+        overflow-y: auto;
+      }
+
+      #hud-sidebar h2 {
+        margin: 0 0 12px;
+        font-size: 24px;
+        color: #ffefb7;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+
+      .sidebar-section {
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid #4e3528;
+        border-radius: 8px;
+        padding: 10px;
+        margin-bottom: 10px;
+      }
+
+      .sidebar-section h3 {
+        margin: 0 0 8px;
+        font-size: 12px;
+        text-transform: uppercase;
+        color: #f5cfa1;
+        letter-spacing: 0.05em;
+      }
+
+      .sidebar-section p {
+        margin: 0;
+        line-height: 1.35;
+        font-size: 15px;
+      }
+
+      #sidebar-goal,
+      #sidebar-controls {
+        white-space: pre-line;
+      }
+
+      @media (max-width: 1100px) {
+        #app-shell {
+          flex-direction: column;
+          height: auto;
+          min-height: 100vh;
+        }
+
+        #game {
+          height: min(72vh, calc(100vw * 9 / 16));
+        }
+
+        #hud-sidebar {
+          flex-basis: auto;
+          width: 100%;
+        }
       }
 
       canvas {
@@ -28,7 +104,30 @@
     </style>
   </head>
   <body>
-    <div id="game"></div>
+    <div id="app-shell">
+      <div id="game"></div>
+      <aside id="hud-sidebar" aria-label="Mission HUD">
+        <h2>Mission HUD</h2>
+        <section class="sidebar-section">
+          <h3>Level</h3>
+          <p id="sidebar-level">Level Select</p>
+        </section>
+        <section class="sidebar-section">
+          <h3>Goal</h3>
+          <p id="sidebar-goal">Choose a level to begin.</p>
+        </section>
+        <section class="sidebar-section">
+          <h3>Health</h3>
+          <p id="sidebar-health">-</p>
+        </section>
+        <section class="sidebar-section">
+          <h3>Controls</h3>
+          <p id="sidebar-controls">1: Level 1
+2: Level 2
+3: Level 3</p>
+        </section>
+      </aside>
+    </div>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.70.0/dist/phaser.js"></script>
     <script type="module" src="src/main.js"></script>
   </body>

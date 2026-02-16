@@ -1,8 +1,10 @@
+import { updateSidebar } from "../ui/sidebar.js";
+
 const TILE_SIZE = 32;
 const FLOOR_FRAME = 21;
 const WALL_FRAME = 9;
 const BREAKABLE_FRAME = 38;
-const CAMERA_ZOOM = 1.35;
+const CAMERA_ZOOM = 1.1;
 const MARTIAN_SPEED = 70;
 const BULLET_SPEED = 320;
 
@@ -292,15 +294,16 @@ export default class Level2Scene extends Phaser.Scene {
 
     this.cameras.main.startFollow(this.player, true, 0.12, 0.12);
 
+    const uiZoom = this.cameras.main.zoom;
     const hudDepth = 1000;
     this.hudBg = this.add
-      .rectangle(0, 0, this.scale.width, 70, 0x140b07, 0.9)
+      .rectangle(0, 0, this.scale.width / uiZoom, 70 / uiZoom, 0x140b07, 0.9)
       .setOrigin(0)
       .setScrollFactor(0)
       .setDepth(hudDepth);
 
     this.statusText = this.add
-      .text(16, 10, "Ambush! Grab the raygun. F to fire.", {
+      .text(16 / uiZoom, 10 / uiZoom, "Ambush! Grab the raygun. F to fire.", {
         fontSize: "16px",
         fontStyle: "bold",
         color: "#f7e9d3",
@@ -311,7 +314,7 @@ export default class Level2Scene extends Phaser.Scene {
       .setDepth(hudDepth + 1);
 
     this.hudText = this.add
-      .text(16, 38, "", {
+      .text(16 / uiZoom, 38 / uiZoom, "", {
         fontSize: "14px",
         color: "#f7e9d3",
         stroke: "#3a1c12",
@@ -322,16 +325,22 @@ export default class Level2Scene extends Phaser.Scene {
 
     this.helpText = this.add
       .text(
-        16,
-        this.scale.height - 32,
-        "Keys: Arrows/WASD move · F fire · E interact/use explosive · SPACE jetpack · R retry · L level select",
+        (this.scale.width * 0.5) / uiZoom,
+        76 / uiZoom,
+        "Controls: Move Arrows/WASD · F fire · E interact · SPACE jetpack\nN next level (after refuel) · R retry · L level select",
         {
-          fontSize: "14px",
-          color: "#f7e9d3",
-          stroke: "#3a1c12",
+          fontSize: "12px",
+          fontStyle: "bold",
+          color: "#fff7bf",
+          stroke: "#000000",
           strokeThickness: 2,
+          backgroundColor: "rgba(0,0,0,0.45)",
+          align: "center",
+          wordWrap: { width: (this.scale.width - 40) / uiZoom },
+          padding: { x: 8, y: 4 },
         }
       )
+      .setOrigin(0.5, 0)
       .setScrollFactor(0)
       .setDepth(hudDepth + 1);
 
@@ -804,6 +813,9 @@ export default class Level2Scene extends Phaser.Scene {
   }
 
   updateHud() {
+    if (!this.hudText) {
+      return;
+    }
     const mode = this.inRover ? "Rover" : "On Foot";
     const jetpack = this.hasJetpack ? `${this.jetpackFuel}` : "-";
     const raygun = this.raygunEquipped ? "Yes" : "No";
@@ -812,6 +824,21 @@ export default class Level2Scene extends Phaser.Scene {
         `Raygun: ${raygun}  Jetpack Fuel: ${jetpack}  ` +
         `Explosives: ${this.explosives}  Health: ${this.health}`
     );
+
+    const goal = this.levelComplete
+      ? "Ship fueled. Press N to continue to Level 3."
+      : this.gameOver
+        ? "Mission failed. Press R to retry."
+        : this.fuelCollected >= this.requiredFuel
+          ? "Return to the ship and refuel to finish Level 2."
+          : "Collect fuel canisters and survive the hazards.";
+    updateSidebar({
+      level: "Level 2: Rover Hunt",
+      goal,
+      health: `${this.health}/3`,
+      controls:
+        "Move: Arrows/WASD\nF: Fire\nE: Interact\nSPACE: Jetpack\nN: Next level (after refuel)\nR: Retry\nL: Level select",
+    });
   }
 
   sealEntrance() {
@@ -1130,6 +1157,7 @@ export default class Level2Scene extends Phaser.Scene {
       }
     }
     this.statusText.setText("Game over. Press R to retry or L for levels.");
+    this.updateHud();
   }
 
   findBreakableWall(target) {
@@ -1204,7 +1232,11 @@ export default class Level2Scene extends Phaser.Scene {
     if (this.jetpackTrail) {
       this.jetpackTrail.on = false;
     }
-    this.statusText.setText("Ship fueled! Level 2 complete.");
+    this.statusText.setText("Ship fueled! Level 2 complete. Press N for Level 3.");
+    this.updateHud();
+    this.input.keyboard.once("keydown-N", () => {
+      this.scene.start("Level3Scene");
+    });
   }
 
   isAtShip(target) {

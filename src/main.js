@@ -1,5 +1,6 @@
 import Level1Scene from "./scenes/Level1Scene.js";
 import Level2Scene from "./scenes/Level2Scene.js";
+import Level3Scene from "./scenes/Level3Scene.js";
 import LevelSelectScene from "./scenes/LevelSelectScene.js";
 
 const config = {
@@ -19,7 +20,7 @@ const config = {
       debug: false,
     },
   },
-  scene: [LevelSelectScene, Level1Scene, Level2Scene],
+  scene: [LevelSelectScene, Level1Scene, Level2Scene, Level3Scene],
   backgroundColor: "#2b140d",
 };
 

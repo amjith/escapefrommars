@@ -1,10 +1,18 @@
+import { updateSidebar } from "../ui/sidebar.js";
+
 const TILE_SIZE = 32;
 const FLOOR_FRAME = 21;
 const WALL_FRAME = 9;
-const CAMERA_ZOOM = 1.35;
+const CAMERA_ZOOM = 1.1;
 const MARTIAN_SPEED = 85;
 const MARTIAN_TRAIL_GAP = 0;
 const MARTIAN_TRAIL_MAX = 2000;
+const PATH_DIRS = [
+  [1, 0],
+  [-1, 0],
+  [0, 1],
+  [0, -1],
+];
 
 const LEVEL_LAYOUT = [
   "##############################",
@@ -49,6 +57,9 @@ export default class Level1Scene extends Phaser.Scene {
     this.health = 3;
     this.maxHealth = 3;
     this.playerTrail = [];
+    this.wallGrid = null;
+    this.gridWidth = 0;
+    this.gridHeight = 0;
   }
 
   preload() {
@@ -73,6 +84,13 @@ export default class Level1Scene extends Phaser.Scene {
   create() {
     const { walls, spawn } = this.buildLevel();
     this.spawnPoint = spawn.player;
+
+    this.gridWidth = LEVEL_LAYOUT[0].length;
+    this.gridHeight = LEVEL_LAYOUT.length;
+    this.wallGrid = new Array(this.gridWidth * this.gridHeight).fill(false);
+    walls.forEach((spot) => {
+      this.wallGrid[spot.y * this.gridWidth + spot.x] = true;
+    });
 
     const worldWidth = LEVEL_LAYOUT[0].length * TILE_SIZE;
     const worldHeight = LEVEL_LAYOUT.length * TILE_SIZE;
@@ -136,6 +154,7 @@ export default class Level1Scene extends Phaser.Scene {
       this.hasAccessGem = true;
       accessGem.disableBody(true, true);
       this.statusText.setText("Access gem secured. Head to the ship.");
+      this.updateHud();
     });
     this.physics.add.overlap(this.player, ship, () => {
       if (!this.hasAccessGem) {
@@ -147,6 +166,7 @@ export default class Level1Scene extends Phaser.Scene {
       }
       this.levelComplete = true;
       this.statusText.setText("Ship unlocked! Press N for Level 2.");
+      this.updateHud();
       this.physics.pause();
       this.player.setTint(0x88ffcc);
       this.player.anims.stop();
@@ -163,38 +183,49 @@ export default class Level1Scene extends Phaser.Scene {
       this.scene.start("LevelSelectScene");
     });
 
+    const uiZoom = this.cameras.main.zoom;
+
     this.statusText = this.add
-      .text(16, 16, "Find the access gem to unlock the ship.", {
+      .text(16 / uiZoom, 16 / uiZoom, "Find the access gem to unlock the ship.", {
         fontSize: "16px",
         fontStyle: "bold",
         color: "#f7e9d3",
         stroke: "#3a1c12",
         strokeThickness: 3,
       })
-      .setScrollFactor(0);
+      .setScrollFactor(0)
+      .setDepth(1000);
 
     this.hudText = this.add
-      .text(16, 40, "", {
+      .text(16 / uiZoom, 40 / uiZoom, "", {
         fontSize: "14px",
         color: "#f7e9d3",
         stroke: "#3a1c12",
         strokeThickness: 2,
       })
-      .setScrollFactor(0);
+      .setScrollFactor(0)
+      .setDepth(1000);
 
     this.helpText = this.add
       .text(
-        16,
-        this.scale.height - 32,
-        "Keys: Arrows/WASD move · N next level (after unlock) · L level select",
+        (this.scale.width * 0.5) / uiZoom,
+        76 / uiZoom,
+        "Controls: Move Arrows/WASD · N next level (after unlock) · L level select",
         {
-          fontSize: "14px",
-          color: "#f7e9d3",
-          stroke: "#3a1c12",
+          fontSize: "12px",
+          fontStyle: "bold",
+          color: "#fff7bf",
+          stroke: "#000000",
           strokeThickness: 2,
+          backgroundColor: "rgba(0,0,0,0.45)",
+          align: "center",
+          wordWrap: { width: (this.scale.width - 40) / uiZoom },
+          padding: { x: 8, y: 4 },
         }
       )
-      .setScrollFactor(0);
+      .setOrigin(0.5, 0)
+      .setScrollFactor(0)
+      .setDepth(1000);
 
     this.recordPlayerTrail(true);
     this.updateHud();
@@ -296,6 +327,19 @@ export default class Level1Scene extends Phaser.Scene {
       return;
     }
     this.hudText.setText(`Health: ${this.health}/${this.maxHealth}`);
+
+    const goal = this.levelComplete
+      ? "Ship unlocked. Press N to continue to Level 2."
+      : this.hasAccessGem
+        ? "Return to the ship to unlock it."
+        : "Find the access gem and unlock the ship.";
+    updateSidebar({
+      level: "Level 1: Mars Maze",
+      goal,
+      health: `${this.health}/${this.maxHealth}`,
+      controls:
+        "Move: Arrows/WASD\nN: Next level (after unlock)\nL: Level select",
+    });
   }
 
   recordPlayerTrail(force) {
@@ -319,50 +363,33 @@ export default class Level1Scene extends Phaser.Scene {
   }
 
   updateMartians() {
-    if (!this.martians || !this.playerTrail.length) {
+    if (!this.martians || !this.player) {
       return;
     }
-    const lastIndex = this.playerTrail.length - 1;
+    const targetTile = this.getTileCoords(this.player.x, this.player.y);
+    if (!this.isInBounds(targetTile.x, targetTile.y)) {
+      return;
+    }
     this.martians.getChildren().forEach((martian) => {
       if (!martian.active) {
         return;
       }
-      const offset = martian.getData("trailOffset") || 0;
-      const desiredIndex = Math.max(0, lastIndex - offset);
-      let trailIndex = martian.getData("trailIndex");
-      if (trailIndex === undefined || trailIndex === null) {
-        trailIndex = desiredIndex;
-      } else if (trailIndex > desiredIndex) {
-        trailIndex = desiredIndex;
-      }
-
-      let targetTile = this.playerTrail[trailIndex];
-      if (!targetTile) {
+      const startTile = this.getTileCoords(martian.x, martian.y);
+      const nextStep = this.findNextStep(startTile, targetTile);
+      if (!nextStep) {
+        martian.setVelocity(0, 0);
         return;
       }
-      let targetPos = toWorld(targetTile.x, targetTile.y);
+      const targetPos = toWorld(nextStep.x, nextStep.y);
       let dx = targetPos.x - martian.x;
       let dy = targetPos.y - martian.y;
       let distance = Math.hypot(dx, dy);
 
-      while (distance < 4 && trailIndex < desiredIndex) {
-        trailIndex += 1;
-        targetTile = this.playerTrail[trailIndex];
-        if (!targetTile) {
-          break;
-        }
-        targetPos = toWorld(targetTile.x, targetTile.y);
-        dx = targetPos.x - martian.x;
-        dy = targetPos.y - martian.y;
-        distance = Math.hypot(dx, dy);
-      }
-
-      if (distance < 4) {
+      if (distance < 2) {
         martian.setVelocity(0, 0);
       } else {
         martian.setVelocity((dx / distance) * MARTIAN_SPEED, (dy / distance) * MARTIAN_SPEED);
       }
-      martian.setData("trailIndex", trailIndex);
     });
   }
 
@@ -396,6 +423,72 @@ export default class Level1Scene extends Phaser.Scene {
         repeat: -1,
       });
     }
+  }
+
+  isInBounds(x, y) {
+    return x >= 0 && y >= 0 && x < this.gridWidth && y < this.gridHeight;
+  }
+
+  findNextStep(start, target) {
+    if (!this.wallGrid) {
+      return null;
+    }
+    if (start.x === target.x && start.y === target.y) {
+      return null;
+    }
+    if (!this.isInBounds(start.x, start.y) || !this.isInBounds(target.x, target.y)) {
+      return null;
+    }
+    const width = this.gridWidth;
+    const height = this.gridHeight;
+    const total = width * height;
+    const startIndex = start.y * width + start.x;
+    const targetIndex = target.y * width + target.x;
+
+    const prev = new Int32Array(total);
+    prev.fill(-1);
+    const queue = new Int32Array(total);
+    let head = 0;
+    let tail = 0;
+    queue[tail++] = startIndex;
+    prev[startIndex] = startIndex;
+
+    while (head < tail) {
+      const current = queue[head++];
+      if (current === targetIndex) {
+        break;
+      }
+      const cx = current % width;
+      const cy = (current / width) | 0;
+      for (let i = 0; i < PATH_DIRS.length; i += 1) {
+        const nx = cx + PATH_DIRS[i][0];
+        const ny = cy + PATH_DIRS[i][1];
+        if (nx < 0 || ny < 0 || nx >= width || ny >= height) {
+          continue;
+        }
+        const nextIndex = ny * width + nx;
+        if (prev[nextIndex] !== -1) {
+          continue;
+        }
+        if (this.wallGrid[nextIndex]) {
+          continue;
+        }
+        prev[nextIndex] = current;
+        queue[tail++] = nextIndex;
+      }
+    }
+
+    if (prev[targetIndex] === -1) {
+      return null;
+    }
+    let stepIndex = targetIndex;
+    while (prev[stepIndex] !== startIndex) {
+      stepIndex = prev[stepIndex];
+      if (stepIndex === startIndex) {
+        return null;
+      }
+    }
+    return { x: stepIndex % width, y: (stepIndex / width) | 0 };
   }
 
 }
